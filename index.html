@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Realtime Data Chart</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {
+            darkMode: 'class', 
+            theme: {
+                extend: { 
+                    fontFamily: { 
+                        sans: ['Poppins', 'sans-serif'],
+                        tech: ['Orbitron', 'sans-serif'],
+                        digital: ['"VT323"', 'monospace']
+                    },
+                    colors: {
+                        'glass': 'rgba(255, 255, 255, 0.05)',
+                    },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                        'pop-in': 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        },
+                        popIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.95) translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.5' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.5); border-radius: 10px;}
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.5); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.8); }
+
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+
+        .chart-grid {
+            background-image: 
+                linear-gradient(to right, rgba(51, 65, 85, 0.2) 1px, transparent 1px),
+                linear-gradient(to top, rgba(51, 65, 85, 0.2) 1px, transparent 1px);
+            background-size: 100% 20%; 
+        }
+        
+        .bar-transition {
+            transition: height 1s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s ease;
+        }
+    </style>
+</head>
+<body class="relative min-h-[100dvh] text-gray-100 bg-slate-950 flex flex-col font-sans select-none overflow-x-hidden">
+
+    <!-- Latar Belakang (Blobs) -->
+    <div class="fixed top-0 left-10 w-72 h-72 md:w-96 md:h-96 xl:w-[40rem] xl:h-[40rem] bg-emerald-700/20 rounded-full mix-blend-lighten filter blur-3xl opacity-70 animate-blob pointer-events-none z-0"></div>
+    <div class="fixed top-0 right-10 w-72 h-72 md:w-96 md:h-96 xl:w-[40rem] xl:h-[40rem] bg-emerald-900/30 rounded-full mix-blend-lighten filter blur-3xl opacity-70 animate-blob animation-delay-2000 pointer-events-none z-0"></div>
+    <div class="fixed -bottom-8 left-20 w-72 h-72 md:w-96 md:h-96 xl:w-[40rem] xl:h-[40rem] bg-emerald-800/20 rounded-full mix-blend-lighten filter blur-3xl opacity-70 animate-blob animation-delay-4000 pointer-events-none z-0"></div>
+
+    <!-- HEADER -->
+    <header class="p-4 md:p-6 flex justify-between items-center bg-slate-900/80 backdrop-blur-md shadow-md z-20 relative border-b border-slate-700/50 shrink-0">
+        <div class="flex items-center gap-3 md:gap-4 overflow-hidden">
+            <div class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shrink-0">
+                <i class="fas fa-chart-column text-white text-xl md:text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg md:text-2xl font-black tracking-wide text-emerald-100 truncate font-tech">TEST PEMAHAMAN</h1>
+                <p class="text-xs text-emerald-400 tracking-widest font-medium uppercase flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-glow"></span> 
+                    <span id="status-text">Menunggu Data...</span>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Tombol Fullscreen -->
+        <button id="fullscreen-btn" class="p-2 md:px-4 md:py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 rounded-lg text-sm transition flex items-center gap-2 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+            <i class="fas fa-expand" id="fullscreen-icon"></i>
+            <span class="hidden sm:inline font-medium" id="fullscreen-text">Fullscreen</span>
+        </button>
+    </header>
+
+    <!-- AREA UTAMA -->
+    <main class="flex-grow relative w-full z-10 p-4 md:p-8 flex items-center justify-center">
+        
+        <!-- Kartu Glassmorphism (Ketinggian Ditingkatkan) -->
+        <div class="w-full max-w-6xl bg-slate-800/60 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-slate-700/50 p-6 md:p-8 animate-pop-in flex flex-col h-[85vh] min-h-[600px]">
+            
+            <div class="flex justify-between items-end mb-6 shrink-0">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Persentase Pemahaman</h2>
+                    <p class="text-sm text-gray-400">Terimakasih sudah sukarela berpartisipasi dalam pembahasan yang sudah di jelaskan.</p>
+                </div>
+            </div>
+
+            <!-- Area Grafik -->
+            <div class="flex-grow flex w-full mt-4 min-h-[400px]">
+                
+                <!-- Y-Axis Labels -->
+                <div class="flex flex-col justify-between text-[11px] sm:text-xs text-gray-400 font-tech font-bold py-1 pr-3 border-r border-slate-600 z-10 flex-shrink-0 text-right w-[40px] sm:w-[50px] bg-slate-800/30">
+                    <span>100%</span>
+                    <span>75%</span>
+                    <span>50%</span>
+                    <span>25%</span>
+                    <span>0%</span>
+                </div>
+
+                <!-- Container Batang Grafik -->
+                <div class="flex-grow relative chart-grid border-b border-slate-600 custom-scrollbar overflow-x-auto overflow-y-hidden">
+                    <!-- RUANG AMAN (px-28) DITAMBAHKAN AGAR TIDAK TERPOTONG DI KIRI/KANAN -->
+                    <div id="chart-container" class="flex items-end justify-start gap-6 sm:gap-10 px-28 sm:px-32 h-full w-max min-w-full pb-1">
+                        <!-- Batang akan di-generate oleh JavaScript -->
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Legenda Dinamis 1 - 8 -->
+            <div class="mt-8 flex flex-wrap justify-center gap-4 text-xs text-gray-400 shrink-0">
+                <span class="font-bold mr-2 text-gray-300">Jumlah Poin:</span>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-violet-600 to-violet-400"></div> 8</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-indigo-600 to-indigo-400"></div> 7</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-blue-600 to-blue-400"></div> 6</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-cyan-600 to-cyan-400"></div> 5</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-emerald-600 to-emerald-400"></div> 4</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-yellow-600 to-yellow-400"></div> 3</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-orange-600 to-orange-400"></div> 2</div>
+                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-gradient-to-t from-red-600 to-red-400"></div> 1</div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // PENGATURAN FULLSCREEN
+        // ==========================================
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const fullscreenIcon = document.getElementById('fullscreen-icon');
+        const fullscreenText = document.getElementById('fullscreen-text');
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                fullscreenIcon.classList.replace('fa-expand', 'fa-compress');
+                fullscreenText.textContent = 'Exit Fullscreen';
+            } else {
+                fullscreenIcon.classList.replace('fa-compress', 'fa-expand');
+                fullscreenText.textContent = 'Fullscreen';
+            }
+        });
+
+        // ==========================================
+        // PENGATURAN DATABASE & GRAFIK
+        // ==========================================
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzYmDqERR89RNexw8gutagoFvcegQm-9d3tcdNo1k2JiymHYHnSquJqf9WTs1RzZuQW/exec"; 
+        const MAX_VALUE = 8; 
+        const REFRESH_RATE = 3000; 
+        const chartContainer = document.getElementById('chart-container');
+        const statusText = document.getElementById('status-text');
+        
+        const allColorClasses = [
+            'from-violet-600', 'to-violet-400', 
+            'from-indigo-600', 'to-indigo-400',
+            'from-blue-600', 'to-blue-400', 
+            'from-cyan-600', 'to-cyan-400',
+            'from-emerald-600', 'to-emerald-400', 
+            'from-yellow-600', 'to-yellow-400',
+            'from-orange-600', 'to-orange-400', 
+            'from-red-600', 'to-red-400'
+        ];
+
+        let updateInterval;
+
+        // ==========================================
+        // LOGIKA APLIKASI
+        // ==========================================
+        async function fetchData() {
+            try {
+                let dataToRender = [];
+                if (GAS_URL === "") {
+                    statusText.textContent = "Mode Simulasi Aktif";
+                    statusText.classList.replace('text-emerald-400', 'text-amber-400');
+                    dataToRender = generateMockData();
+                } else {
+                    statusText.textContent = "Loading...";
+                    statusText.classList.replace('text-red-400', 'text-emerald-400');
+
+                    const response = await fetch(GAS_URL);
+                    if (!response.ok) throw new Error('Koneksi Gagal (CORS/URL Salah)');
+                    const jsonResponse = await response.json();
+                    
+                    if (jsonResponse.status === "error") throw new Error(jsonResponse.message);
+                    
+                    dataToRender = jsonResponse.data || (Array.isArray(jsonResponse) ? jsonResponse : []);
+                    statusText.textContent = "Loading.";
+                    statusText.classList.replace('text-amber-400', 'text-emerald-400');
+                    statusText.classList.replace('text-red-400', 'text-emerald-400');
+                }
+                renderChart(dataToRender);
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                statusText.textContent = "Error: " + error.message;
+                statusText.classList.replace('text-emerald-400', 'text-red-400');
+                statusText.classList.replace('text-amber-400', 'text-red-400');
+            }
+        }
+
+        function renderChart(data) {
+            const validData = data.filter(item => item.nilai !== null && item.nilai !== "" && !isNaN(item.nilai) && item.nilai > 0);
+
+            const groupedData = {};
+            validData.forEach(item => {
+                const n = parseFloat(item.nilai);
+                if (!groupedData[n]) groupedData[n] = [];
+                groupedData[n].push(item.nama);
+            });
+
+            const chartData = Object.keys(groupedData).map(k => ({
+                nilai: parseFloat(k),
+                namas: groupedData[k]
+            })).sort((a, b) => b.nilai - a.nilai);
+
+            chartData.forEach(item => {
+                const safeId = item.nilai.toString().replace('.', '-');
+                let barWrapper = document.getElementById(`bar-wrapper-${safeId}`);
+
+                if (!barWrapper) {
+                    const barHtml = `
+                        <div class="flex flex-col items-center justify-end group w-16 sm:w-20 flex-shrink-0 h-full transition-all duration-500 ease-in-out hover:z-50" id="bar-wrapper-${safeId}">
+                            <div class="w-full flex-grow flex items-end justify-center relative">
+                                <!-- Batang Grafik -->
+                                <div class="w-full sm:w-12 rounded-t-sm bar-transition bg-gradient-to-t relative shadow-[0_0_10px_rgba(0,0,0,0.5)] border-t border-white/20 cursor-pointer" 
+                                     id="bar-${safeId}" style="height: 0%;">
+                                     
+                                     <!-- TOOLTIP (Pop-up Nama) -->
+                                     <!-- Max-height dibatasi aman (220px) agar selalu muat di dalam layar -->
+                                     <div id="tooltip-${safeId}" class="absolute left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-xl text-white text-xs p-4 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 z-[60] border border-slate-600 shadow-2xl min-w-[200px] max-w-[280px] max-h-[220px] flex flex-col invisible group-hover:visible pointer-events-auto">
+                                         <div class="font-black text-emerald-400 text-center border-b border-slate-700 pb-2 mb-3 tracking-widest shrink-0">
+                                             POIN: <span id="val-txt-${safeId}">${item.nilai}</span>
+                                         </div>
+                                         <!-- Daftar Nama Scrollable -->
+                                         <div class="overflow-y-auto custom-scrollbar flex-grow pr-2">
+                                             <ul id="names-list-${safeId}" class="text-left space-y-2 text-gray-200 font-medium pl-1">
+                                             </ul>
+                                         </div>
+                                     </div>
+                                     
+                                     <!-- Efek cahaya -->
+                                     <div class="absolute top-0 left-0 right-0 h-1 bg-white/40 rounded-t-sm pointer-events-none"></div>
+                                </div>
+                            </div>
+                            <!-- Label Sumbu X -->
+                            <div class="mt-3 text-[10px] font-bold text-emerald-100 text-center w-full truncate px-2 py-1.5 bg-slate-800/80 rounded-lg border border-slate-600 shadow-inner">
+                                <span id="count-txt-${safeId}">0</span> ORANG
+                            </div>
+                        </div>
+                    `;
+                    chartContainer.insertAdjacentHTML('beforeend', barHtml);
+                    barWrapper = document.getElementById(`bar-wrapper-${safeId}`);
+                }
+                
+                chartContainer.appendChild(barWrapper);
+            });
+
+            Array.from(chartContainer.children).forEach(child => {
+                const id = child.id.replace('bar-wrapper-', '');
+                if (!chartData.find(item => item.nilai.toString().replace('.', '-') === id)) {
+                    child.remove();
+                }
+            });
+
+            chartData.forEach(item => {
+                const safeId = item.nilai.toString().replace('.', '-');
+                const barElement = document.getElementById(`bar-${safeId}`);
+                const valTxt = document.getElementById(`val-txt-${safeId}`);
+                const countTxt = document.getElementById(`count-txt-${safeId}`);
+                const namesList = document.getElementById(`names-list-${safeId}`);
+                const tooltip = document.getElementById(`tooltip-${safeId}`);
+                
+                if (barElement) {
+                    const clampedValue = Math.min(item.nilai, MAX_VALUE);
+                    const percentage = (clampedValue / MAX_VALUE) * 100;
+                    
+                    barElement.style.height = `${percentage}%`;
+                    valTxt.textContent = (item.nilai % 1 === 0) ? item.nilai : item.nilai.toFixed(1);
+                    countTxt.textContent = item.namas.length;
+
+                    // Logika Penempatan Posisi Box Nama agar Selalu Muat
+                    if (percentage > 50) {
+                        tooltip.classList.remove('bottom-full', 'mb-2');
+                        tooltip.classList.add('top-8', 'mt-0'); 
+                    } else {
+                        tooltip.classList.add('bottom-full', 'mb-2');
+                        tooltip.classList.remove('top-8', 'mt-0');
+                    }
+
+                    namesList.innerHTML = item.namas.map((nama, index) => 
+                        `<li class="flex items-start gap-2 border-b border-slate-700/50 pb-1.5 last:border-0 last:pb-0">
+                            <span class="text-[10px] text-emerald-500 font-tech mt-0.5 shrink-0">${index + 1}.</span> 
+                            <span class="break-words whitespace-normal w-full leading-snug">${nama}</span>
+                        </li>`
+                    ).join('');
+
+                    barElement.classList.remove(...allColorClasses);
+
+                    if (item.nilai >= 8) barElement.classList.add('from-violet-600', 'to-violet-400');
+                    else if (item.nilai >= 7) barElement.classList.add('from-indigo-600', 'to-indigo-400');
+                    else if (item.nilai >= 6) barElement.classList.add('from-blue-600', 'to-blue-400');
+                    else if (item.nilai >= 5) barElement.classList.add('from-cyan-600', 'to-cyan-400');
+                    else if (item.nilai >= 4) barElement.classList.add('from-emerald-600', 'to-emerald-400');
+                    else if (item.nilai >= 3) barElement.classList.add('from-yellow-600', 'to-yellow-400');
+                    else if (item.nilai >= 2) barElement.classList.add('from-orange-600', 'to-orange-400');
+                    else barElement.classList.add('from-red-600', 'to-red-400');
+                }
+            });
+        }
+
+        window.onload = () => {
+            fetchData();
+            updateInterval = setInterval(fetchData, REFRESH_RATE); 
+        };
+    </script>
+</body>
+</html>
